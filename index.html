@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATS-Friendly CV Generator</title>
+    <!-- Include jsPDF and html2canvas libraries from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top */
+            min-height: 100vh;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 30px 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 700px;
+            box-sizing: border-box;
+        }
+
+        h1, h2 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+         h2 {
+             color: #0056b3;
+             margin-top: 0;
+             border-bottom: 1px solid #eee;
+             padding-bottom: 10px;
+         }
+
+        .form-section {
+            display: none; /* Hide all sections by default */
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            background-color: #fdfdfd;
+        }
+
+        .form-section.active {
+            display: block; /* Show active section */
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        input[type="date"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .navigation-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 25px;
+        }
+
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+        }
+
+        #prevBtn {
+            background-color: #6c757d;
+            color: white;
+        }
+        #prevBtn:hover {
+            background-color: #5a6268;
+        }
+
+        #nextBtn, #generatePdfBtn {
+            background-color: #007bff;
+            color: white;
+        }
+         #nextBtn:hover, #generatePdfBtn:hover {
+            background-color: #0056b3;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .dynamic-section {
+            border: 1px dashed #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            position: relative;
+             background-color: #f9f9f9;
+        }
+         .dynamic-section h4 {
+             margin-top: 0;
+             margin-bottom: 10px;
+             color: #444;
+         }
+
+        .add-btn {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 15px;
+            background-color: #28a745;
+            color: white;
+            font-size: 0.9rem;
+        }
+         .add-btn:hover {
+             background-color: #218838;
+         }
+
+         .remove-btn {
+             position: absolute;
+             top: 5px;
+             right: 5px;
+             background-color: #dc3545;
+             color: white;
+             border: none;
+             border-radius: 50%;
+             width: 25px;
+             height: 25px;
+             font-size: 14px;
+             line-height: 25px;
+             text-align: center;
+             cursor: pointer;
+             padding: 0;
+         }
+          .remove-btn:hover {
+              background-color: #c82333;
+          }
+
+        /* Styles for the hidden preview area used for PDF generation */
+        #cv-preview {
+            /* display: none; */ /* Keep hidden visually until needed, or position off-screen */
+            position: absolute;
+            left: -9999px; /* Position off-screen */
+            top: auto;
+            width: 210mm; /* A4 width approximation */
+            min-height: 297mm; /* A4 height approximation */
+            padding: 20mm; /* Margins */
+            background: white;
+            color: black;
+            font-family: Arial, sans-serif; /* Standard font */
+            font-size: 11pt;
+            box-sizing: border-box;
+        }
+        #cv-preview h1 { font-size: 18pt; text-align: left; margin-bottom: 5pt; color: black; }
+        #cv-preview h2 { font-size: 14pt; text-align: left; margin-top: 15pt; margin-bottom: 8pt; border-bottom: 1px solid #ccc; padding-bottom: 3pt; color: black; }
+        #cv-preview p, #cv-preview li { font-size: 11pt; margin-bottom: 5pt; line-height: 1.4; }
+        #cv-preview ul { padding-left: 20px; margin-top: 0; }
+        #cv-preview .section-title { font-weight: bold; margin-bottom: 5px; display: block;}
+        #cv-preview .sub-heading { font-weight: bold; }
+        #cv-preview .date-range { font-style: italic; color: #555; }
+
+        #loading-indicator {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>ATS-Friendly CV Generator</h1>
+
+        <form id="cvForm">
+
+            <!-- Section 1: Personal Information -->
+            <div class="form-section active" id="personal-info">
+                <h2>Personal Information</h2>
+                <label for="fullName">Full Name:</label>
+                <input type="text" id="fullName" name="fullName" required placeholder="e.g., Jane Doe">
+
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required placeholder="e.g., jane.doe@email.com">
+
+                <label for="phone">Phone:</label>
+                <input type="tel" id="phone" name="phone" placeholder="e.g., +1 123-456-7890">
+
+                <label for="linkedin">LinkedIn Profile URL (Optional):</label>
+                <input type="text" id="linkedin" name="linkedin" placeholder="e.g., linkedin.com/in/janedoe">
+
+                <label for="portfolio">Portfolio/Website URL (Optional):</label>
+                <input type="text" id="portfolio" name="portfolio" placeholder="e.g., github.com/janedoe or janedoe.com">
+
+                <label for="address">Location (City, Country - Optional):</label>
+                <input type="text" id="address" name="address" placeholder="e.g., San Francisco, USA">
+            </div>
+
+            <!-- Section 2: Professional Summary/Objective -->
+            <div class="form-section" id="summary">
+                <h2>Professional Summary / Objective</h2>
+                <label for="professionalSummary">Summary/Objective:</label>
+                <textarea id="professionalSummary" name="professionalSummary" rows="5" placeholder="Write a brief summary (2-4 sentences) highlighting your key skills, experience, and career goals. Tailor this to the job you're applying for."></textarea>
+            </div>
+
+            <!-- Section 3: Work Experience -->
+            <div class="form-section" id="experience">
+                <h2>Work Experience</h2>
+                <div id="experience-entries">
+                    <!-- Experience entries will be added here -->
+                    <div class="dynamic-section experience-entry">
+                         <h4>Experience 1</h4>
+                         <button type="button" class="remove-btn" onclick="removeEntry(this, 'experience-entry')">X</button>
+                         <label>Job Title:</label>
+                         <input type="text" name="jobTitle[]" placeholder="e.g., Software Engineer">
+                         <label>Company Name:</label>
+                         <input type="text" name="companyName[]" placeholder="e.g., Tech Solutions Inc.">
+                         <label>Location:</label>
+                         <input type="text" name="jobLocation[]" placeholder="e.g., New York, NY">
+                         <label>Start Date:</label>
+                         <input type="date" name="jobStartDate[]">
+                         <label>End Date (Leave blank if current):</label>
+                         <input type="date" name="jobEndDate[]">
+                         <label>Responsibilities/Achievements (Use bullet points):</label>
+                         <textarea name="jobDescription[]" rows="5" placeholder="- Developed feature X, resulting in Y% increase in user engagement.&#10;- Led a team of Z developers..."></textarea>
+                    </div>
+                </div>
+                <button type="button" class="add-btn" onclick="addExperience()">+ Add Another Experience</button>
+            </div>
+
+            <!-- Section 4: Education -->
+            <div class="form-section" id="education">
+                <h2>Education</h2>
+                <div id="education-entries">
+                     <!-- Education entries will be added here -->
+                     <div class="dynamic-section education-entry">
+                          <h4>Education 1</h4>
+                          <button type="button" class="remove-btn" onclick="removeEntry(this, 'education-entry')">X</button>
+                          <label>Degree Name:</label>
+                          <input type="text" name="degreeName[]" placeholder="e.g., B.S. in Computer Science">
+                          <label>Institution Name:</label>
+                          <input type="text" name="institutionName[]" placeholder="e.g., University of Example">
+                           <label>Location:</label>
+                          <input type="text" name="eduLocation[]" placeholder="e.g., Exampleville, USA">
+                          <label>Start Date:</label>
+                          <input type="date" name="eduStartDate[]">
+                          <label>End Date (or Expected Graduation):</label>
+                          <input type="date" name="eduEndDate[]">
+                          <label>Relevant Coursework/Achievements (Optional):</label>
+                          <textarea name="eduDescription[]" rows="3" placeholder="e.g., Relevant Coursework: Data Structures, Algorithms. Dean's List."></textarea>
+                     </div>
+                </div>
+                 <button type="button" class="add-btn" onclick="addEducation()">+ Add Another Education</button>
+            </div>
+
+            <!-- Section 5: Skills -->
+            <div class="form-section" id="skills">
+                <h2>Skills</h2>
+                <label for="technicalSkills">Technical Skills:</label>
+                <textarea id="technicalSkills" name="technicalSkills" rows="4" placeholder="List programming languages, software, tools, frameworks, etc. separated by commas or on new lines. e.g., JavaScript, Python, React, Node.js, SQL, AWS, Git"></textarea>
+
+                <label for="softSkills">Soft Skills:</label>
+                <textarea id="softSkills" name="softSkills" rows="4" placeholder="List relevant soft skills. e.g., Communication, Teamwork, Problem-Solving, Leadership, Time Management"></textarea>
+
+                 <label for="languages">Languages (Optional):</label>
+                <textarea id="languages" name="languages" rows="2" placeholder="e.g., English (Native), Spanish (Fluent)"></textarea>
+            </div>
+
+             <!-- Section 6: Projects/Certifications/Awards (Optional) -->
+            <div class="form-section" id="additional">
+                <h2>Additional Information (Optional)</h2>
+                 <label for="projects">Projects:</label>
+                <textarea id="projects" name="projects" rows="4" placeholder="Briefly describe personal or academic projects. Include links if available. e.g., Project Name - Description (link)"></textarea>
+
+                <label for="certifications">Certifications:</label>
+                <textarea id="certifications" name="certifications" rows="3" placeholder="List relevant certifications. e.g., AWS Certified Developer - Associate"></textarea>
+
+                 <label for="awards">Awards/Recognition:</label>
+                <textarea id="awards" name="awards" rows="3" placeholder="List any relevant awards or honors."></textarea>
+            </div>
+
+
+        </form>
+
+        <div class="navigation-buttons">
+            <button type="button" id="prevBtn" onclick="navigate(-1)" disabled>Previous</button>
+            <button type="button" id="nextBtn" onclick="navigate(1)">Next</button>
+            <button type="button" id="generatePdfBtn" style="display: none;">Generate PDF</button>
+        </div>
+
+        <div id="loading-indicator">Generating PDF... Please wait.</div>
+
+        <!-- Hidden Div for PDF Generation Content -->
+        <div id="cv-preview">
+             <!-- Content will be populated here by JavaScript before PDF generation -->
+        </div>
+    </div>
+
+    <script>
+        // Ensure jsPDF is loaded (using umd version which attaches to window)
+        const { jsPDF } = window.jspdf;
+
+        let currentSectionIndex = 0;
+        const sections = document.querySelectorAll('.form-section');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const generatePdfBtn = document.getElementById('generatePdfBtn');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const cvPreviewDiv = document.getElementById('cv-preview');
+
+        function showSection(index) {
+            // Hide all sections
+            sections.forEach((section, i) => {
+                section.classList.toggle('active', i === index);
+            });
+
+            // Update button states
+            prevBtn.disabled = index === 0;
+            nextBtn.style.display = index === sections.length - 1 ? 'none' : 'inline-block';
+            generatePdfBtn.style.display = index === sections.length - 1 ? 'inline-block' : 'none';
+
+            // Scroll to top of container smoothly
+            document.querySelector('.container').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function navigate(step) {
+            // Basic validation example (optional): Check if required fields in current section are filled
+            const currentSection = sections[currentSectionIndex];
+            const requiredInputs = currentSection.querySelectorAll('[required]');
+            let isValid = true;
+            if (step > 0) { // Only validate when moving forward
+                requiredInputs.forEach(input => {
+                    if (!input.value.trim()) {
+                         input.style.border = '1px solid red'; // Highlight empty required field
+                         isValid = false;
+                    } else {
+                         input.style.border = '1px solid #ccc'; // Reset border
+                    }
+                });
+            }
+
+            if (!isValid && step > 0) {
+                 alert('Please fill in all required fields in this section.');
+                 return; // Stop navigation
+            }
+
+
+            const newIndex = currentSectionIndex + step;
+            if (newIndex >= 0 && newIndex < sections.length) {
+                currentSectionIndex = newIndex;
+                showSection(currentSectionIndex);
+            }
+        }
+
+        // --- Dynamic Section Handling ---
+
+        function addExperience() {
+            const container = document.getElementById('experience-entries');
+            const entryCount = container.getElementsByClassName('experience-entry').length;
+            const newEntry = document.createElement('div');
+            newEntry.classList.add('dynamic-section', 'experience-entry');
+            newEntry.innerHTML = `
+                <h4>Experience ${entryCount + 1}</h4>
+                <button type="button" class="remove-btn" onclick="removeEntry(this, 'experience-entry')">X</button>
+                <label>Job Title:</label>
+                <input type="text" name="jobTitle[]" placeholder="e.g., Software Engineer">
+                <label>Company Name:</label>
+                <input type="text" name="companyName[]" placeholder="e.g., Tech Solutions Inc.">
+                <label>Location:</label>
+                <input type="text" name="jobLocation[]" placeholder="e.g., New York, NY">
+                <label>Start Date:</label>
+                <input type="date" name="jobStartDate[]">
+                <label>End Date (Leave blank if current):</label>
+                <input type="date" name="jobEndDate[]">
+                <label>Responsibilities/Achievements (Use bullet points):</label>
+                <textarea name="jobDescription[]" rows="5" placeholder="- Developed feature X..."></textarea>
+            `;
+            container.appendChild(newEntry);
+        }
+
+        function addEducation() {
+            const container = document.getElementById('education-entries');
+            const entryCount = container.getElementsByClassName('education-entry').length;
+            const newEntry = document.createElement('div');
+            newEntry.classList.add('dynamic-section', 'education-entry');
+            newEntry.innerHTML = `
+                 <h4>Education ${entryCount + 1}</h4>
+                 <button type="button" class="remove-btn" onclick="removeEntry(this, 'education-entry')">X</button>
+                 <label>Degree Name:</label>
+                 <input type="text" name="degreeName[]" placeholder="e.g., B.S. in Computer Science">
+                 <label>Institution Name:</label>
+                 <input type="text" name="institutionName[]" placeholder="e.g., University of Example">
+                  <label>Location:</label>
+                 <input type="text" name="eduLocation[]" placeholder="e.g., Exampleville, USA">
+                 <label>Start Date:</label>
+                 <input type="date" name="eduStartDate[]">
+                 <label>End Date (or Expected Graduation):</label>
+                 <input type="date" name="eduEndDate[]">
+                 <label>Relevant Coursework/Achievements (Optional):</label>
+                 <textarea name="eduDescription[]" rows="3" placeholder="e.g., Relevant Coursework: ..."></textarea>
+            `;
+            container.appendChild(newEntry);
+        }
+
+         function removeEntry(button, entryClass) {
+             const entryToRemove = button.closest(`.${entryClass}`);
+             const container = entryToRemove.parentElement;
+             entryToRemove.remove();
+             // Re-number remaining entries (optional but good UX)
+             const remainingEntries = container.getElementsByClassName(entryClass);
+             Array.from(remainingEntries).forEach((entry, index) => {
+                 const heading = entry.querySelector('h4');
+                 if (heading) {
+                     heading.textContent = `${entryClass.split('-')[0].charAt(0).toUpperCase() + entryClass.split('-')[0].slice(1)} ${index + 1}`;
+                 }
+             });
+         }
+
+        // --- PDF Generation ---
+
+        function formatDate(dateString) {
+            if (!dateString) return 'Present';
+            try {
+                 const options = { year: 'numeric', month: 'short' };
+                 const date = new Date(dateString);
+                 // Add timezone offset to avoid off-by-one day errors
+                 date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+                 return date.toLocaleDateString('en-US', options);
+            } catch (e) {
+                return dateString; // Return original if invalid
+            }
+        }
+
+        function generatePreviewHTML() {
+            let html = '';
+
+            // --- Personal Info ---
+            const fullName = document.getElementById('fullName').value;
+            const email = document.getElementById('email').value;
+            const phone = document.getElementById('phone').value;
+            const linkedin = document.getElementById('linkedin').value;
+            const portfolio = document.getElementById('portfolio').value;
+            const address = document.getElementById('address').value;
+
+            html += `<h1>${fullName}</h1>`;
+            let contactInfo = [];
+            if (email) contactInfo.push(email);
+            if (phone) contactInfo.push(phone);
+            if (address) contactInfo.push(address);
+            if (linkedin) contactInfo.push(`LinkedIn: ${linkedin}`);
+            if (portfolio) contactInfo.push(`Portfolio: ${portfolio}`);
+            html += `<p>${contactInfo.join(' | ')}</p>`;
+
+
+            // --- Summary ---
+            const summary = document.getElementById('professionalSummary').value;
+            if (summary.trim()) {
+                html += `<h2>Summary</h2>`;
+                html += `<p>${summary.trim().replace(/\n/g, '<br>')}</p>`;
+            }
+
+             // --- Experience ---
+             const experienceEntries = document.querySelectorAll('.experience-entry');
+             if (experienceEntries.length > 0 && document.querySelector('[name="jobTitle[]"]').value.trim() !== '') { // Check if first entry has title
+                 html += `<h2>Work Experience</h2>`;
+                 experienceEntries.forEach(entry => {
+                     const title = entry.querySelector('[name="jobTitle[]"]').value;
+                     const company = entry.querySelector('[name="companyName[]"]').value;
+                     const location = entry.querySelector('[name="jobLocation[]"]').value;
+                     const startDate = entry.querySelector('[name="jobStartDate[]"]').value;
+                     const endDate = entry.querySelector('[name="jobEndDate[]"]').value;
+                     const description = entry.querySelector('[name="jobDescription[]"]').value;
+
+                     if (title && company) { // Only add if title and company exist
+                         html += `<p><span class="sub-heading">${title}</span> | ${company} | ${location}</p>`;
+                         html += `<p class="date-range">${formatDate(startDate)} - ${formatDate(endDate)}</p>`;
+                         if (description.trim()) {
+                             html += `<ul>`;
+                             description.trim().split('\n').forEach(line => {
+                                 line = line.trim();
+                                 if (line.startsWith('-')) {
+                                     line = line.substring(1).trim(); // Remove leading '-'
+                                 }
+                                 if (line) {
+                                     html += `<li>${line}</li>`;
+                                 }
+                             });
+                             html += `</ul>`;
+                         }
+                     }
+                 });
+             }
+
+             // --- Education ---
+             const educationEntries = document.querySelectorAll('.education-entry');
+              if (educationEntries.length > 0 && document.querySelector('[name="degreeName[]"]').value.trim() !== '') { // Check if first entry has degree
+                 html += `<h2>Education</h2>`;
+                 educationEntries.forEach(entry => {
+                     const degree = entry.querySelector('[name="degreeName[]"]').value;
+                     const institution = entry.querySelector('[name="institutionName[]"]').value;
+                      const location = entry.querySelector('[name="eduLocation[]"]').value;
+                     const startDate = entry.querySelector('[name="eduStartDate[]"]').value;
+                     const endDate = entry.querySelector('[name="eduEndDate[]"]').value;
+                     const description = entry.querySelector('[name="eduDescription[]"]').value;
+
+                     if (degree && institution) { // Only add if degree and institution exist
+                          html += `<p><span class="sub-heading">${degree}</span> | ${institution} | ${location}</p>`;
+                         html += `<p class="date-range">${formatDate(startDate)} - ${formatDate(endDate)}</p>`;
+                         if (description.trim()) {
+                             html += `<p>${description.trim().replace(/\n/g, '<br>')}</p>`;
+                         }
+                     }
+                 });
+             }
+
+             // --- Skills ---
+             const techSkills = document.getElementById('technicalSkills').value;
+             const softSkills = document.getElementById('softSkills').value;
+             const languages = document.getElementById('languages').value;
+             let skillsHtml = '';
+             if (techSkills.trim()) {
+                 skillsHtml += `<p><span class="section-title">Technical Skills:</span> ${techSkills.trim().replace(/\n/g, '<br>')}</p>`;
+             }
+              if (softSkills.trim()) {
+                 skillsHtml += `<p><span class="section-title">Soft Skills:</span> ${softSkills.trim().replace(/\n/g, '<br>')}</p>`;
+             }
+             if (languages.trim()) {
+                 skillsHtml += `<p><span class="section-title">Languages:</span> ${languages.trim().replace(/\n/g, '<br>')}</p>`;
+             }
+             if (skillsHtml) {
+                  html += `<h2>Skills</h2>` + skillsHtml;
+             }
+
+
+              // --- Additional Sections ---
+             const projects = document.getElementById('projects').value;
+             const certifications = document.getElementById('certifications').value;
+             const awards = document.getElementById('awards').value;
+             let additionalHtml = '';
+
+              if (projects.trim()) {
+                 additionalHtml += `<h3>Projects</h3><p>${projects.trim().replace(/\n/g, '<br>')}</p>`;
+             }
+              if (certifications.trim()) {
+                 additionalHtml += `<h3>Certifications</h3><p>${certifications.trim().replace(/\n/g, '<br>')}</p>`;
+             }
+              if (awards.trim()) {
+                 additionalHtml += `<h3>Awards/Recognition</h3><p>${awards.trim().replace(/\n/g, '<br>')}</p>`;
+             }
+
+             if (additionalHtml) {
+                  // Only add H2 if there is content
+                  html += `<h2>Additional Information</h2>` + additionalHtml.replace(/<h3>/g,'<p class="section-title">').replace(/<\/h3>/g,'</p>');
+             }
+
+
+            cvPreviewDiv.innerHTML = html;
+            return cvPreviewDiv; // Return the element itself
+        }
+
+         generatePdfBtn.addEventListener('click', async () => {
+             loadingIndicator.style.display = 'block';
+             generatePdfBtn.disabled = true;
+             prevBtn.disabled = true; // Disable during generation
+
+             try {
+                 const contentToPrint = generatePreviewHTML();
+
+                 // Ensure content is rendered (wait a tiny bit for complex DOM updates if needed)
+                 await new Promise(resolve => setTimeout(resolve, 100));
+
+                 const canvas = await html2canvas(contentToPrint, {
+                     scale: 2, // Increase scale for better resolution
+                     useCORS: true, // If you ever load external images
+                     logging: false // Suppress logs in console
+                 });
+
+                 const imgData = canvas.toDataURL('image/png');
+                 const pdf = new jsPDF({
+                     orientation: 'portrait',
+                     unit: 'mm',
+                     format: 'a4'
+                 });
+
+                 const pdfWidth = pdf.internal.pageSize.getWidth();
+                 const pdfHeight = pdf.internal.pageSize.getHeight();
+                 const canvasWidth = canvas.width;
+                 const canvasHeight = canvas.height;
+                 const ratio = canvasWidth / canvasHeight;
+                 const imgWidth = pdfWidth - 20; // pdf width - margins (10mm each side)
+                 const imgHeight = imgWidth / ratio;
+
+                 let heightLeft = imgHeight;
+                 let position = 10; // Initial top margin
+
+                 // Add image to PDF, handling pagination
+                 pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                 heightLeft -= (pdfHeight - 20); // pdf height - margins
+
+                 while (heightLeft > 0) {
+                     position = heightLeft - imgHeight + 10; // Reset position for next page accounting for margin
+                     pdf.addPage();
+                     pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                     heightLeft -= (pdfHeight - 20);
+                 }
+
+                 pdf.save('cv.pdf');
+
+             } catch (error) {
+                 console.error("Error generating PDF:", error);
+                 alert("Sorry, an error occurred while generating the PDF. Please check the console for details.");
+             } finally {
+                 loadingIndicator.style.display = 'none';
+                 // Re-enable buttons based on current section
+                 generatePdfBtn.disabled = false;
+                 prevBtn.disabled = currentSectionIndex === 0;
+             }
+         });
+
+
+        // Initialize the form
+        showSection(currentSectionIndex);
+
+    </script>
+
+</body>
+</html>
